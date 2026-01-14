@@ -46,3 +46,10 @@ npm run build
 - Wire up Blackjack game state and rules
 - Add betting flow and animations
 - Connect to a backend for multiplayer tables
+
+## Manual Test Notes
+
+- Deal a new round, press **Hit** once, and verify exactly one new card is added.
+- Continue hitting to confirm no duplicate cards appear in the same round.
+- Hit until the player total exceeds 21 and confirm the round ends immediately with a dealer win.
+- During the player turn, confirm the dealer shows one face-down card and the total is hidden; the card and total should reveal after Stand.

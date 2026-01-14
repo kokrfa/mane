@@ -195,6 +195,21 @@
   color: #dc2626;
 }
 
+.playing-card--hidden {
+  background: linear-gradient(135deg, #1e293b, #0f172a);
+  color: #f8fafc;
+  border: 2px solid rgba(248, 250, 252, 0.3);
+  display: grid;
+  place-items: center;
+}
+
+.playing-card__hidden-label {
+  font-size: 0.7rem;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  opacity: 0.8;
+}
+
 .playing-card__rank {
   font-weight: 700;
   font-size: 1.1rem;

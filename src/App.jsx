@@ -42,9 +42,11 @@ const RESULT_LABEL = {
   draw: "It's a draw.",
 }
 
-const createDeck = () =>
-  SUITS.flatMap((suit) =>
+const createDeck = () => {
+  let counter = 0
+  return SUITS.flatMap((suit) =>
     RANKS.map((rank) => ({
+      id: `${rank.rank}${suit.name}-${counter++}`,
       suit: suit.name,
       symbol: suit.symbol,
       color: suit.color,
@@ -52,6 +54,7 @@ const createDeck = () =>
       value: rank.value,
     })),
   )
+}
 
 const shuffleDeck = (deck) => {
   const shuffled = [...deck]
@@ -127,6 +130,8 @@ function App() {
     () => calculateHandValue(dealerHand),
     [dealerHand],
   )
+  const isDealerHidden = gameState === 'playerTurn'
+  const dealerTotalDisplay = isDealerHidden ? '?' : dealerTotal
 
   const startRound = () => {
     const freshDeck = shuffleDeck(createDeck())
@@ -167,12 +172,6 @@ function App() {
   }
 
   useEffect(() => {
-    if (screen === SCREEN.game && gameState === 'idle') {
-      startRound()
-    }
-  }, [screen, gameState])
-
-  useEffect(() => {
     if (gameState === 'playerTurn' && playerTotal > 21) {
       setResult('lose')
       setGameState('roundEnd')
@@ -187,15 +186,21 @@ function App() {
     return ''
   }, [gameState, result])
 
-  const renderCard = (card, index) => (
+  const renderCard = (card) => (
     <div
       className={`playing-card ${
         card.color === 'red' ? 'playing-card--red' : ''
       }`}
-      key={`${card.rank}-${card.suit}-${index}`}
+      key={card.id}
     >
       <span className="playing-card__rank">{card.rank}</span>
       <span className="playing-card__suit">{card.symbol}</span>
+    </div>
+  )
+
+  const renderHiddenCard = (cardId) => (
+    <div className="playing-card playing-card--hidden" key={cardId}>
+      <span className="playing-card__hidden-label">Hidden</span>
     </div>
   )
 
@@ -265,10 +270,14 @@ function App() {
             <div className="hand">
               <div className="hand__header">
                 <p className="hand__label">Dealer</p>
-                <p className="hand__total">Total: {dealerTotal}</p>
+                <p className="hand__total">Total: {dealerTotalDisplay}</p>
               </div>
               <div className="cards">
-                {dealerHand.map((card, index) => renderCard(card, index))}
+                {dealerHand.map((card, index) =>
+                  isDealerHidden && index === 1
+                    ? renderHiddenCard(`${card.id}-hidden`)
+                    : renderCard(card),
+                )}
               </div>
             </div>
             <div className="hand">
@@ -277,7 +286,7 @@ function App() {
                 <p className="hand__total">Total: {playerTotal}</p>
               </div>
               <div className="cards">
-                {playerHand.map((card, index) => renderCard(card, index))}
+                {playerHand.map((card) => renderCard(card))}
               </div>
             </div>
           </section>
