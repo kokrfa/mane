@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import WebApp from '@twa-dev/sdk'
 import './App.css'
 
@@ -112,6 +112,7 @@ function App() {
   const [playerHand, setPlayerHand] = useState([])
   const [dealerHand, setDealerHand] = useState([])
   const [result, setResult] = useState(null)
+  const hitLockRef = useRef(false)
 
   useEffect(() => {
     WebApp.ready()
@@ -146,14 +147,16 @@ function App() {
   }
 
   const handleHit = () => {
-    if (gameState !== 'playerTurn') return
-    setDeck((prevDeck) => {
-      const { card, deck: nextDeck } = drawFromDeck(prevDeck)
-      if (card) {
-        setPlayerHand((prevHand) => [...prevHand, card])
-      }
-      return nextDeck
-    })
+    if (gameState !== 'playerTurn' || hitLockRef.current) return
+    hitLockRef.current = true
+    const { card, deck: nextDeck } = drawFromDeck(deck)
+    setDeck(nextDeck)
+    if (card) {
+      setPlayerHand((prevHand) => [...prevHand, card])
+    }
+    if (import.meta.env.DEV) {
+      console.debug('HIT', { cardsAdded: card ? 1 : 0 })
+    }
   }
 
   const handleStand = () => {
@@ -177,6 +180,11 @@ function App() {
       setGameState('roundEnd')
     }
   }, [gameState, playerTotal])
+
+  useEffect(() => {
+    if (!hitLockRef.current) return
+    hitLockRef.current = false
+  }, [gameState, playerHand])
 
   const statusMessage = useMemo(() => {
     if (gameState === 'idle') return 'Ready to deal a new round.'
