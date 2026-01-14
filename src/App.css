@@ -114,6 +114,13 @@
   padding: 12px 20px;
   font-weight: 600;
   cursor: pointer;
+  transition: transform 0.2s ease, opacity 0.2s ease;
+}
+
+.actions button:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+  transform: none;
 }
 
 .actions .primary {
@@ -144,9 +151,23 @@
   color: #cbd5f5;
 }
 
+.hand__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+}
+
+.hand__total {
+  margin: 0 0 12px;
+  font-size: 0.9rem;
+  color: #e2e8f0;
+}
+
 .cards {
   display: flex;
   gap: 12px;
+  flex-wrap: wrap;
 }
 
 .card__placeholder {
@@ -155,6 +176,33 @@
   border-radius: 12px;
   border: 2px dashed rgba(248, 250, 252, 0.6);
   background: rgba(15, 23, 42, 0.35);
+}
+
+.playing-card {
+  width: 72px;
+  height: 100px;
+  border-radius: 12px;
+  background: #f8fafc;
+  color: #0f172a;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 10px;
+  box-shadow: 0 12px 20px rgba(15, 23, 42, 0.2);
+}
+
+.playing-card--red {
+  color: #dc2626;
+}
+
+.playing-card__rank {
+  font-weight: 700;
+  font-size: 1.1rem;
+}
+
+.playing-card__suit {
+  font-size: 1.4rem;
+  align-self: flex-end;
 }
 
 .game__panel {
