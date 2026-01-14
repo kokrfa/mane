@@ -1,0 +1,179 @@
+:root {
+  color: #0f172a;
+}
+
+.app {
+  max-width: 980px;
+  margin: 0 auto;
+  padding: 32px 20px 48px;
+  display: flex;
+  flex-direction: column;
+  gap: 32px;
+}
+
+.app__header {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.app__eyebrow {
+  text-transform: uppercase;
+  letter-spacing: 0.16em;
+  font-size: 0.7rem;
+  color: #64748b;
+  margin: 0;
+}
+
+.app__title {
+  font-size: 2.4rem;
+  margin: 4px 0 0;
+}
+
+.app__nav {
+  display: flex;
+  gap: 12px;
+}
+
+.app__nav button {
+  background: #1e293b;
+  color: #f8fafc;
+  border: none;
+  border-radius: 999px;
+  padding: 8px 18px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: transform 0.2s ease, background 0.2s ease;
+}
+
+.app__nav button.active {
+  background: #14b8a6;
+}
+
+.app__nav button:hover {
+  transform: translateY(-1px);
+}
+
+.home,
+.game {
+  display: grid;
+  gap: 20px;
+}
+
+.card {
+  background: #ffffff;
+  border-radius: 20px;
+  padding: 24px;
+  box-shadow: 0 20px 40px rgba(15, 23, 42, 0.08);
+}
+
+.muted {
+  color: #64748b;
+  margin-top: 4px;
+}
+
+.user {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-top: 20px;
+}
+
+.user__avatar {
+  width: 56px;
+  height: 56px;
+  background: linear-gradient(135deg, #14b8a6, #0ea5e9);
+  border-radius: 18px;
+  display: grid;
+  place-items: center;
+  color: #f8fafc;
+  font-weight: 700;
+  font-size: 1.4rem;
+}
+
+.user__name {
+  font-weight: 600;
+  margin: 0;
+}
+
+.user__handle {
+  margin: 4px 0 0;
+  color: #94a3b8;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 16px;
+}
+
+.actions button {
+  border-radius: 12px;
+  border: none;
+  padding: 12px 20px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.actions .primary {
+  background: #0ea5e9;
+  color: #f8fafc;
+}
+
+.actions .secondary {
+  background: #e2e8f0;
+  color: #1e293b;
+}
+
+.table {
+  background: radial-gradient(circle at top, #0f766e, #0f172a);
+  border-radius: 28px;
+  padding: 28px;
+  display: grid;
+  gap: 24px;
+  color: #f8fafc;
+  min-height: 240px;
+}
+
+.hand__label {
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  font-size: 0.72rem;
+  margin-bottom: 12px;
+  color: #cbd5f5;
+}
+
+.cards {
+  display: flex;
+  gap: 12px;
+}
+
+.card__placeholder {
+  width: 72px;
+  height: 100px;
+  border-radius: 12px;
+  border: 2px dashed rgba(248, 250, 252, 0.6);
+  background: rgba(15, 23, 42, 0.35);
+}
+
+.game__panel {
+  margin-top: 0;
+}
+
+@media (min-width: 768px) {
+  .app__header {
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: flex-end;
+  }
+
+  .home,
+  .game {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .game__panel {
+    grid-column: 2 / 3;
+  }
+}
