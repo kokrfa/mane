@@ -39,7 +39,9 @@ const RANKS = [
 const RESULT_LABEL = {
   win: 'You win!',
   lose: 'Dealer wins.',
-  draw: "It's a draw.",
+  push: 'Push.',
+  blackjack: 'Blackjack! You win!',
+  dealerBlackjack: 'Blackjack! Dealer wins.',
 }
 
 const createDeck = () => {
@@ -81,12 +83,14 @@ const calculateHandValue = (hand) => {
   return total
 }
 
+const isBlackjack = (hand) => hand.length === 2 && calculateHandValue(hand) === 21
+
 const determineWinner = (playerTotal, dealerTotal) => {
   if (playerTotal > 21) return 'lose'
   if (dealerTotal > 21) return 'win'
   if (playerTotal > dealerTotal) return 'win'
   if (playerTotal < dealerTotal) return 'lose'
-  return 'draw'
+  return 'push'
 }
 
 const playDealerTurn = (deck, dealerHand) => {
@@ -131,8 +135,14 @@ function App() {
     () => calculateHandValue(dealerHand),
     [dealerHand],
   )
+  const dealerVisibleTotal = useMemo(() => {
+    if (gameState !== 'playerTurn') return calculateHandValue(dealerHand)
+    const visible = dealerHand[0] ? [dealerHand[0]] : []
+    return calculateHandValue(visible)
+  }, [dealerHand, gameState])
   const isDealerHidden = gameState === 'playerTurn'
-  const dealerTotalDisplay = isDealerHidden ? '?' : dealerTotal
+  const dealerTotalDisplay =
+    gameState === 'playerTurn' ? dealerVisibleTotal : dealerTotal
 
   const startRound = () => {
     const freshDeck = shuffleDeck(createDeck())
@@ -142,8 +152,23 @@ function App() {
     setDeck(freshDeck)
     setPlayerHand(playerCards)
     setDealerHand(dealerCards)
-    setResult(null)
-    setGameState('playerTurn')
+
+    const playerHasBlackjack = isBlackjack(playerCards)
+    const dealerHasBlackjack = isBlackjack(dealerCards)
+
+    if (playerHasBlackjack || dealerHasBlackjack) {
+      if (playerHasBlackjack && dealerHasBlackjack) {
+        setResult('push')
+      } else if (playerHasBlackjack) {
+        setResult('blackjack')
+      } else {
+        setResult('dealerBlackjack')
+      }
+      setGameState('roundEnd')
+    } else {
+      setResult(null)
+      setGameState('playerTurn')
+    }
   }
 
   const handleHit = () => {
@@ -162,11 +187,15 @@ function App() {
   const handleStand = () => {
     if (gameState !== 'playerTurn') return
     setGameState('dealerTurn')
+    const playerNowTotal = calculateHandValue(playerHand)
     const { deck: nextDeck, dealerHand: nextDealer } = playDealerTurn(
       deck,
       dealerHand,
     )
-    const nextResult = determineWinner(playerTotal, calculateHandValue(nextDealer))
+    const nextResult = determineWinner(
+      playerNowTotal,
+      calculateHandValue(nextDealer),
+    )
 
     setDeck(nextDeck)
     setDealerHand(nextDealer)
@@ -182,9 +211,8 @@ function App() {
   }, [gameState, playerTotal])
 
   useEffect(() => {
-    if (!hitLockRef.current) return
     hitLockRef.current = false
-  }, [gameState, playerHand])
+  }, [playerHand, gameState])
 
   const statusMessage = useMemo(() => {
     if (gameState === 'idle') return 'Ready to deal a new round.'
