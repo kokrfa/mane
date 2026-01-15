@@ -156,14 +156,13 @@ function App() {
   }
 
   const handleCustomBet = () => {
-    const nextBet = parseInt(customBet, 10)
-    if (!nextBet || Number.isNaN(nextBet) || nextBet <= 0) {
-      setStatusNote('Enter a valid bet.')
-      return
-    }
-    handleSetBet(Math.min(balance, nextBet))
-handleSetBet(Math.min(balance, nextBet))
+  const nextBet = parseInt(customBet, 10)
+  if (!nextBet || Number.isNaN(nextBet) || nextBet <= 0) {
+    setStatusNote('Enter a valid bet.')
+    return
   }
+  handleSetBet(Math.min(balance, nextBet))
+}
 
 const resetRound = () => {
   setGameState('idle')
@@ -177,7 +176,6 @@ const resetRound = () => {
   hitLockRef.current = false
 }
 
-  }
 
   const startRound = () => {
     if (balance <= 0) {
@@ -296,22 +294,21 @@ const resetRound = () => {
   }, [balance, gameState, result, statusNote])
 
   const renderCard = (card) => (
-    <div
-      className={`playing-card ${
-        card.color === 'red' ? 'playing-card--red' : ''
-      }`}
-      key={card.id}
-    >
-      <span className="playing-card__rank">{card.rank}</span>
-      <span className="playing-card__suit">{card.symbol}</span>
-    </div>
-  )
+  <div
+    className={`playing-card ${card.color === 'red' ? 'playing-card--red' : ''}`}
+    key={card.id}
+  >
+    <span className="playing-card__rank">{card.rank}</span>
+    <span className="playing-card__suit">{card.symbol}</span>
+  </div>
+)
 
-  const renderHiddenCard = (cardId) => (
-    <div className="playing-card playing-card--hidden" key={cardId}>
-      <span className="playing-card__hidden-label">Hidden</span>
-    </div>
-  )
+const renderHiddenCard = (cardId) => (
+  <div className="playing-card playing-card--hidden" key={cardId}>
+    <span className="playing-card__hidden-label">Hidden</span>
+  </div>
+)
+
 
   return (
     <div className="app">
@@ -414,14 +411,27 @@ const resetRound = () => {
             <p className="muted">
               {statusMessage}
             </p>
-            <div className="game__bets">
-              <p>Balance: {balance}</p>
-              <p>Bet: {bet}</p>
-              <div className="actions">
-                <button
-                  className="secondary"
-                  onClick={() => handleSetBet(25)}
-<div className="actions">
+            <div className="actions">
+  <button className="secondary" onClick={() => handleSetBet(25)} type="button" disabled={isBettingLocked}>
+    25
+  </button>
+  <button className="secondary" onClick={() => handleSetBet(50)} type="button" disabled={isBettingLocked}>
+    50
+  </button>
+  <button className="secondary" onClick={() => handleSetBet(100)} type="button" disabled={isBettingLocked}>
+    100
+  </button>
+  <button className="secondary" onClick={() => handleSetBet(250)} type="button" disabled={isBettingLocked}>
+    250
+  </button>
+  <button className="secondary" onClick={() => handleSetBet(balance)} type="button" disabled={isBettingLocked}>
+    Max
+  </button>
+  <button className="secondary" onClick={() => handleSetBet(0)} type="button" disabled={isBettingLocked}>
+    Clear
+  </button>
+</div>
+
   <button
     className="secondary"
     onClick={() => handleSetBet(25)}
