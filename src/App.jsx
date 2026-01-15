@@ -116,7 +116,11 @@ function App() {
   const [playerHand, setPlayerHand] = useState([])
   const [dealerHand, setDealerHand] = useState([])
   const [result, setResult] = useState(null)
+  const [balance, setBalance] = useState(1000)
+  const [bet, setBet] = useState(0)
+  const [statusNote, setStatusNote] = useState(null)
   const hitLockRef = useRef(false)
+  const payoutAppliedRef = useRef(false)
 
   useEffect(() => {
     WebApp.ready()
@@ -144,7 +148,31 @@ function App() {
   const dealerTotalDisplay =
     gameState === 'playerTurn' ? dealerVisibleTotal : dealerTotal
 
+  const isBettingLocked = gameState !== 'idle'
+
+  const handleAddBet = (amount) => {
+    setBet((prev) => Math.min(balance, prev + amount))
+  }
+
+  const handleMaxBet = () => {
+    setBet(balance)
+  }
+
+  const handleClearBet = () => {
+    setBet(0)
+  }
+
   const startRound = () => {
+    if (balance <= 0) {
+      setStatusNote('Out of chips. Buy more in the Shop.')
+      return
+    }
+    if (bet === 0) {
+      setStatusNote('Place a bet to start.')
+      return
+    }
+    payoutAppliedRef.current = false
+    setStatusNote(null)
     const freshDeck = shuffleDeck(createDeck())
     const playerCards = [freshDeck.pop(), freshDeck.pop()].filter(Boolean)
     const dealerCards = [freshDeck.pop(), freshDeck.pop()].filter(Boolean)
@@ -187,20 +215,22 @@ function App() {
   const handleStand = () => {
     if (gameState !== 'playerTurn') return
     setGameState('dealerTurn')
-    const playerNowTotal = calculateHandValue(playerHand)
-    const { deck: nextDeck, dealerHand: nextDealer } = playDealerTurn(
-      deck,
-      dealerHand,
-    )
-    const nextResult = determineWinner(
-      playerNowTotal,
-      calculateHandValue(nextDealer),
-    )
+    setTimeout(() => {
+      const playerNowTotal = calculateHandValue(playerHand)
+      const { deck: nextDeck, dealerHand: nextDealer } = playDealerTurn(
+        deck,
+        dealerHand,
+      )
+      const nextResult = determineWinner(
+        playerNowTotal,
+        calculateHandValue(nextDealer),
+      )
 
-    setDeck(nextDeck)
-    setDealerHand(nextDealer)
-    setResult(nextResult)
-    setGameState('roundEnd')
+      setDeck(nextDeck)
+      setDealerHand(nextDealer)
+      setResult(nextResult)
+      setGameState('roundEnd')
+    }, 250)
   }
 
   useEffect(() => {
@@ -214,13 +244,36 @@ function App() {
     hitLockRef.current = false
   }, [playerHand, gameState])
 
+  useEffect(() => {
+    if (bet > 0) {
+      setStatusNote(null)
+    }
+  }, [bet])
+
+  useEffect(() => {
+    if (gameState === 'roundEnd' && result && !payoutAppliedRef.current) {
+      setBalance((prevBalance) => {
+        if (result === 'win') return prevBalance + bet
+        if (result === 'lose') return prevBalance - bet
+        if (result === 'blackjack')
+          return prevBalance + Math.floor(bet * 1.5)
+        if (result === 'dealerBlackjack') return prevBalance - bet
+        return prevBalance
+      })
+      setBet(0)
+      payoutAppliedRef.current = true
+    }
+  }, [gameState, result, bet])
+
   const statusMessage = useMemo(() => {
+    if (balance <= 0) return 'Out of chips. Buy more in the Shop.'
+    if (statusNote) return statusNote
     if (gameState === 'idle') return 'Ready to deal a new round.'
     if (gameState === 'playerTurn') return 'Your move: hit or stand.'
     if (gameState === 'dealerTurn') return 'Dealer is drawing...'
     if (gameState === 'roundEnd') return RESULT_LABEL[result] ?? 'Round over.'
     return ''
-  }, [gameState, result])
+  }, [balance, gameState, result, statusNote])
 
   const renderCard = (card) => (
     <div
@@ -332,6 +385,52 @@ function App() {
             <p className="muted">
               {statusMessage}
             </p>
+            <div className="game__bets">
+              <p>Balance: {balance}</p>
+              <p>Bet: {bet}</p>
+              <div className="actions">
+                <button
+                  className="secondary"
+                  onClick={() => handleAddBet(10)}
+                  type="button"
+                  disabled={isBettingLocked}
+                >
+                  +10
+                </button>
+                <button
+                  className="secondary"
+                  onClick={() => handleAddBet(25)}
+                  type="button"
+                  disabled={isBettingLocked}
+                >
+                  +25
+                </button>
+                <button
+                  className="secondary"
+                  onClick={() => handleAddBet(50)}
+                  type="button"
+                  disabled={isBettingLocked}
+                >
+                  +50
+                </button>
+                <button
+                  className="secondary"
+                  onClick={handleMaxBet}
+                  type="button"
+                  disabled={isBettingLocked}
+                >
+                  Max
+                </button>
+                <button
+                  className="secondary"
+                  onClick={handleClearBet}
+                  type="button"
+                  disabled={isBettingLocked}
+                >
+                  Clear
+                </button>
+              </div>
+            </div>
             <div className="actions">
               <button
                 className="secondary"
@@ -353,7 +452,12 @@ function App() {
                 className="primary"
                 onClick={startRound}
                 type="button"
-                disabled={gameState === 'playerTurn'}
+                disabled={
+                  gameState === 'playerTurn' ||
+                  gameState === 'dealerTurn' ||
+                  bet === 0 ||
+                  balance <= 0
+                }
               >
                 Deal new round
               </button>
