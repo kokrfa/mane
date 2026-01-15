@@ -162,6 +162,21 @@ function App() {
       return
     }
     handleSetBet(Math.min(balance, nextBet))
+handleSetBet(Math.min(balance, nextBet))
+  }
+
+const resetRound = () => {
+  setGameState('idle')
+  setDeck([])
+  setPlayerHand([])
+  setDealerHand([])
+  setResult(null)
+  setStatusNote(null)
+  setCustomBet('')
+  payoutAppliedRef.current = false
+  hitLockRef.current = false
+}
+
   }
 
   const startRound = () => {
@@ -173,6 +188,7 @@ function App() {
       setStatusNote('Place a bet to start.')
       return
     }
+    setCustomBet('')
     payoutAppliedRef.current = false
     setStatusNote(null)
     const freshDeck = shuffleDeck(createDeck())
@@ -262,14 +278,16 @@ function App() {
         if (result === 'dealerBlackjack') return prevBalance - bet
         return prevBalance
       })
-      setBet(0)
       payoutAppliedRef.current = true
+      setGameState('idle')
     }
   }, [gameState, result, bet])
 
   const statusMessage = useMemo(() => {
     if (balance <= 0) return 'Out of chips. Buy more in the Shop.'
     if (statusNote) return statusNote
+    if (gameState === 'idle' && result)
+      return RESULT_LABEL[result] ?? 'Round over.'
     if (gameState === 'idle') return 'Ready to deal a new round.'
     if (gameState === 'playerTurn') return 'Your move: hit or stand.'
     if (gameState === 'dealerTurn') return 'Dealer is drawing...'
@@ -305,14 +323,20 @@ function App() {
         <nav className="app__nav">
           <button
             className={screen === SCREEN.home ? 'active' : ''}
-            onClick={() => setScreen(SCREEN.home)}
+            onClick={() => {
+              resetRound()
+              setScreen(SCREEN.home)
+            }}
             type="button"
           >
             Home
           </button>
           <button
             className={screen === SCREEN.game ? 'active' : ''}
-            onClick={() => setScreen(SCREEN.game)}
+            onClick={() => {
+              resetRound()
+              setScreen(SCREEN.game)
+            }}
             type="button"
           >
             Game
@@ -344,7 +368,10 @@ function App() {
             <div className="actions">
               <button
                 className="primary"
-                onClick={() => setScreen(SCREEN.game)}
+                onClick={() => {
+                  resetRound()
+                  setScreen(SCREEN.game)
+                }}
                 type="button"
               >
                 Start game
@@ -394,37 +421,57 @@ function App() {
                 <button
                   className="secondary"
                   onClick={() => handleSetBet(25)}
-                  type="button"
-                  disabled={isBettingLocked}
-                >
-                  25
-                </button>
-                <button
-                  className="secondary"
-                  onClick={() => handleSetBet(50)}
-                  type="button"
-                  disabled={isBettingLocked}
-                >
-                  50
-                </button>
-                <button
-                  className="secondary"
-                  onClick={() => handleSetBet(100)}
-                  type="button"
-                  disabled={isBettingLocked}
-                >
-                  100
-                </button>
-                <button
-                  className="secondary"
-                  onClick={() => handleSetBet(250)}
-                  type="button"
-                  disabled={isBettingLocked}
-                >
-                  250
-                </button>
-                <button
-                  className="secondary"
+<div className="actions">
+  <button
+    className="secondary"
+    onClick={() => handleSetBet(25)}
+    type="button"
+    disabled={isBettingLocked}
+  >
+    25
+  </button>
+  <button
+    className="secondary"
+    onClick={() => handleSetBet(50)}
+    type="button"
+    disabled={isBettingLocked}
+  >
+    50
+  </button>
+  <button
+    className="secondary"
+    onClick={() => handleSetBet(100)}
+    type="button"
+    disabled={isBettingLocked}
+  >
+    100
+  </button>
+  <button
+    className="secondary"
+    onClick={() => handleSetBet(250)}
+    type="button"
+    disabled={isBettingLocked}
+  >
+    250
+  </button>
+  <button
+    className="secondary"
+    onClick={() => handleSetBet(balance)}
+    type="button"
+    disabled={isBettingLocked}
+  >
+    Max
+  </button>
+  <button
+    className="secondary"
+    onClick={() => handleSetBet(0)}
+    type="button"
+    disabled={isBettingLocked}
+  >
+    Clear
+  </button>
+</div>
+
                   onClick={() => handleSetBet(balance)}
                   type="button"
                   disabled={isBettingLocked}
