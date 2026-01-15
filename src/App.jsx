@@ -118,6 +118,7 @@ function App() {
   const [result, setResult] = useState(null)
   const [balance, setBalance] = useState(1000)
   const [bet, setBet] = useState(0)
+  const [customBet, setCustomBet] = useState('')
   const [statusNote, setStatusNote] = useState(null)
   const hitLockRef = useRef(false)
   const payoutAppliedRef = useRef(false)
@@ -150,16 +151,17 @@ function App() {
 
   const isBettingLocked = gameState !== 'idle'
 
-  const handleAddBet = (amount) => {
-    setBet((prev) => Math.min(balance, prev + amount))
+  const handleSetBet = (amount) => {
+    setBet(Math.max(0, Math.min(balance, amount)))
   }
 
-  const handleMaxBet = () => {
-    setBet(balance)
-  }
-
-  const handleClearBet = () => {
-    setBet(0)
+  const handleCustomBet = () => {
+    const nextBet = parseInt(customBet, 10)
+    if (!nextBet || Number.isNaN(nextBet) || nextBet <= 0) {
+      setStatusNote('Enter a valid bet.')
+      return
+    }
+    handleSetBet(Math.min(balance, nextBet))
   }
 
   const startRound = () => {
@@ -391,31 +393,39 @@ function App() {
               <div className="actions">
                 <button
                   className="secondary"
-                  onClick={() => handleAddBet(10)}
+                  onClick={() => handleSetBet(25)}
                   type="button"
                   disabled={isBettingLocked}
                 >
-                  +10
+                  25
                 </button>
                 <button
                   className="secondary"
-                  onClick={() => handleAddBet(25)}
+                  onClick={() => handleSetBet(50)}
                   type="button"
                   disabled={isBettingLocked}
                 >
-                  +25
+                  50
                 </button>
                 <button
                   className="secondary"
-                  onClick={() => handleAddBet(50)}
+                  onClick={() => handleSetBet(100)}
                   type="button"
                   disabled={isBettingLocked}
                 >
-                  +50
+                  100
                 </button>
                 <button
                   className="secondary"
-                  onClick={handleMaxBet}
+                  onClick={() => handleSetBet(250)}
+                  type="button"
+                  disabled={isBettingLocked}
+                >
+                  250
+                </button>
+                <button
+                  className="secondary"
+                  onClick={() => handleSetBet(balance)}
                   type="button"
                   disabled={isBettingLocked}
                 >
@@ -423,11 +433,32 @@ function App() {
                 </button>
                 <button
                   className="secondary"
-                  onClick={handleClearBet}
+                  onClick={() => handleSetBet(0)}
                   type="button"
                   disabled={isBettingLocked}
                 >
                   Clear
+                </button>
+              </div>
+              <div className="actions">
+                <label>
+                  Custom bet
+                  <input
+                    min="0"
+                    onChange={(event) => setCustomBet(event.target.value)}
+                    step="1"
+                    type="number"
+                    value={customBet}
+                    disabled={isBettingLocked}
+                  />
+                </label>
+                <button
+                  className="secondary"
+                  onClick={handleCustomBet}
+                  type="button"
+                  disabled={isBettingLocked}
+                >
+                  Set
                 </button>
               </div>
             </div>
