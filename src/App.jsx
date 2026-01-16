@@ -111,71 +111,70 @@ const playDealerTurn = (deck, dealerHand) => {
 
 function App() {
   const [screen, setScreen] = useState(SCREEN.home)
-  const [gameState, setGameState] = useState('idle')
+  const [gameState, setGameState] = useState('idle') // idle | playerTurn | dealerTurn | roundEnd
   const [deck, setDeck] = useState([])
   const [playerHand, setPlayerHand] = useState([])
   const [dealerHand, setDealerHand] = useState([])
   const [result, setResult] = useState(null)
+
   const [balance, setBalance] = useState(1000)
   const [bet, setBet] = useState(0)
   const [customBet, setCustomBet] = useState('')
   const [statusNote, setStatusNote] = useState(null)
+
   const hitLockRef = useRef(false)
   const payoutAppliedRef = useRef(false)
+  const lastBetRef = useRef(0)
 
   useEffect(() => {
     WebApp.ready()
     WebApp.expand()
   }, [])
 
-  const user = useMemo(() => {
-    return WebApp.initDataUnsafe?.user ?? placeholderUser
-  }, [])
+  const user = useMemo(() => WebApp.initDataUnsafe?.user ?? placeholderUser, [])
 
-  const playerTotal = useMemo(
-    () => calculateHandValue(playerHand),
-    [playerHand],
-  )
-  const dealerTotal = useMemo(
-    () => calculateHandValue(dealerHand),
-    [dealerHand],
-  )
+  const playerTotal = useMemo(() => calculateHandValue(playerHand), [playerHand])
+  const dealerTotal = useMemo(() => calculateHandValue(dealerHand), [dealerHand])
+
+  const isDealerHidden = gameState === 'playerTurn'
+
   const dealerVisibleTotal = useMemo(() => {
-    if (gameState !== 'playerTurn') return calculateHandValue(dealerHand)
+    if (!isDealerHidden) return dealerTotal
     const visible = dealerHand[0] ? [dealerHand[0]] : []
     return calculateHandValue(visible)
-  }, [dealerHand, gameState])
-  const isDealerHidden = gameState === 'playerTurn'
-  const dealerTotalDisplay =
-    gameState === 'playerTurn' ? dealerVisibleTotal : dealerTotal
+  }, [dealerHand, dealerTotal, isDealerHidden])
+
+  const dealerTotalDisplay = isDealerHidden ? dealerVisibleTotal : dealerTotal
 
   const isBettingLocked = gameState !== 'idle'
 
   const handleSetBet = (amount) => {
-    setBet(Math.max(0, Math.min(balance, amount)))
+    const clamped = Math.max(0, Math.min(balance, amount))
+    setBet(clamped)
+    if (clamped > 0) setStatusNote(null)
   }
 
   const handleCustomBet = () => {
-  const nextBet = parseInt(customBet, 10)
-  if (!nextBet || Number.isNaN(nextBet) || nextBet <= 0) {
-    setStatusNote('Enter a valid bet.')
-    return
+    const nextBet = parseInt(customBet, 10)
+    if (!nextBet || Number.isNaN(nextBet) || nextBet <= 0) {
+      setStatusNote('Enter a valid bet.')
+      return
+    }
+    handleSetBet(nextBet)
   }
-  handleSetBet(Math.min(balance, nextBet))
-}
 
-const resetRound = () => {
-  setGameState('idle')
-  setDeck([])
-  setPlayerHand([])
-  setDealerHand([])
-  setResult(null)
-  setStatusNote(null)
-  setCustomBet('')
-  payoutAppliedRef.current = false
-  hitLockRef.current = false
-}
-
+  const resetRound = () => {
+    setGameState('idle')
+    setDeck([])
+    setPlayerHand([])
+    setDealerHand([])
+    setResult(null)
+    setStatusNote(null)
+    setCustomBet('')
+    payoutAppliedRef.current = false
+    hitLockRef.current = false
+    lastBetRef.current = 0
+  }
 
   const startRound = () => {
     if (balance <= 0) {
@@ -186,9 +185,12 @@ const resetRound = () => {
       setStatusNote('Place a bet to start.')
       return
     }
-    setCustomBet('')
+
     payoutAppliedRef.current = false
+    lastBetRef.current = bet
     setStatusNote(null)
+    setCustomBet('')
+
     const freshDeck = shuffleDeck(createDeck())
     const playerCards = [freshDeck.pop(), freshDeck.pop()].filter(Boolean)
     const dealerCards = [freshDeck.pop(), freshDeck.pop()].filter(Boolean)
@@ -201,13 +203,10 @@ const resetRound = () => {
     const dealerHasBlackjack = isBlackjack(dealerCards)
 
     if (playerHasBlackjack || dealerHasBlackjack) {
-      if (playerHasBlackjack && dealerHasBlackjack) {
-        setResult('push')
-      } else if (playerHasBlackjack) {
-        setResult('blackjack')
-      } else {
-        setResult('dealerBlackjack')
-      }
+      if (playerHasBlackjack && dealerHasBlackjack) setResult('push')
+      else if (playerHasBlackjack) setResult('blackjack')
+      else setResult('dealerBlackjack')
+
       setGameState('roundEnd')
     } else {
       setResult(null)
@@ -218,29 +217,22 @@ const resetRound = () => {
   const handleHit = () => {
     if (gameState !== 'playerTurn' || hitLockRef.current) return
     hitLockRef.current = true
+
     const { card, deck: nextDeck } = drawFromDeck(deck)
     setDeck(nextDeck)
-    if (card) {
-      setPlayerHand((prevHand) => [...prevHand, card])
-    }
-    if (import.meta.env.DEV) {
-      console.debug('HIT', { cardsAdded: card ? 1 : 0 })
-    }
+    if (card) setPlayerHand((prev) => [...prev, card])
+
+    if (import.meta.env.DEV) console.debug('HIT', { cardsAdded: card ? 1 : 0 })
   }
 
   const handleStand = () => {
     if (gameState !== 'playerTurn') return
     setGameState('dealerTurn')
+
     setTimeout(() => {
       const playerNowTotal = calculateHandValue(playerHand)
-      const { deck: nextDeck, dealerHand: nextDealer } = playDealerTurn(
-        deck,
-        dealerHand,
-      )
-      const nextResult = determineWinner(
-        playerNowTotal,
-        calculateHandValue(nextDealer),
-      )
+      const { deck: nextDeck, dealerHand: nextDealer } = playDealerTurn(deck, dealerHand)
+      const nextResult = determineWinner(playerNowTotal, calculateHandValue(nextDealer))
 
       setDeck(nextDeck)
       setDealerHand(nextDealer)
@@ -249,6 +241,7 @@ const resetRound = () => {
     }, 250)
   }
 
+  // Bust ends immediately
   useEffect(() => {
     if (gameState === 'playerTurn' && playerTotal > 21) {
       setResult('lose')
@@ -256,36 +249,35 @@ const resetRound = () => {
     }
   }, [gameState, playerTotal])
 
+  // Release hit lock after updates
   useEffect(() => {
     hitLockRef.current = false
   }, [playerHand, gameState])
 
-  useEffect(() => {
-    if (bet > 0) {
-      setStatusNote(null)
-    }
-  }, [bet])
-
+  // Apply payout once per round, then return to idle
   useEffect(() => {
     if (gameState === 'roundEnd' && result && !payoutAppliedRef.current) {
+      const wager = lastBetRef.current || bet
+
       setBalance((prevBalance) => {
-        if (result === 'win') return prevBalance + bet
-        if (result === 'lose') return prevBalance - bet
-        if (result === 'blackjack')
-          return prevBalance + Math.floor(bet * 1.5)
-        if (result === 'dealerBlackjack') return prevBalance - bet
+        if (result === 'win') return prevBalance + wager
+        if (result === 'lose') return prevBalance - wager
+        if (result === 'blackjack') return prevBalance + Math.floor(wager * 1.5)
+        if (result === 'dealerBlackjack') return prevBalance - wager
         return prevBalance
       })
+
       payoutAppliedRef.current = true
       setGameState('idle')
+      // Bet is NOT forced to 0: player can quickly replay with same bet or change it.
     }
   }, [gameState, result, bet])
 
   const statusMessage = useMemo(() => {
     if (balance <= 0) return 'Out of chips. Buy more in the Shop.'
     if (statusNote) return statusNote
-    if (gameState === 'idle' && result)
-      return RESULT_LABEL[result] ?? 'Round over.'
+
+    if (gameState === 'idle' && result) return RESULT_LABEL[result] ?? 'Round over.'
     if (gameState === 'idle') return 'Ready to deal a new round.'
     if (gameState === 'playerTurn') return 'Your move: hit or stand.'
     if (gameState === 'dealerTurn') return 'Dealer is drawing...'
@@ -294,21 +286,20 @@ const resetRound = () => {
   }, [balance, gameState, result, statusNote])
 
   const renderCard = (card) => (
-  <div
-    className={`playing-card ${card.color === 'red' ? 'playing-card--red' : ''}`}
-    key={card.id}
-  >
-    <span className="playing-card__rank">{card.rank}</span>
-    <span className="playing-card__suit">{card.symbol}</span>
-  </div>
-)
+    <div
+      className={`playing-card ${card.color === 'red' ? 'playing-card--red' : ''}`}
+      key={card.id}
+    >
+      <span className="playing-card__rank">{card.rank}</span>
+      <span className="playing-card__suit">{card.symbol}</span>
+    </div>
+  )
 
-const renderHiddenCard = (cardId) => (
-  <div className="playing-card playing-card--hidden" key={cardId}>
-    <span className="playing-card__hidden-label">Hidden</span>
-  </div>
-)
-
+  const renderHiddenCard = (cardId) => (
+    <div className="playing-card playing-card--hidden" key={cardId}>
+      <span className="playing-card__hidden-label">Hidden</span>
+    </div>
+  )
 
   return (
     <div className="app">
@@ -317,6 +308,7 @@ const renderHiddenCard = (cardId) => (
           <p className="app__eyebrow">Telegram Mini App</p>
           <h1 className="app__title">Blackjack</h1>
         </div>
+
         <nav className="app__nav">
           <button
             className={screen === SCREEN.home ? 'active' : ''}
@@ -359,9 +351,7 @@ const renderHiddenCard = (cardId) => (
 
           <section className="card">
             <h2>Quick actions</h2>
-            <p className="muted">
-              Start a new Blackjack round or explore the upcoming features.
-            </p>
+            <p className="muted">Start a new Blackjack round or explore the upcoming features.</p>
             <div className="actions">
               <button
                 className="primary"
@@ -395,157 +385,75 @@ const renderHiddenCard = (cardId) => (
                 )}
               </div>
             </div>
+
             <div className="hand">
               <div className="hand__header">
                 <p className="hand__label">You</p>
                 <p className="hand__total">Total: {playerTotal}</p>
               </div>
-              <div className="cards">
-                {playerHand.map((card) => renderCard(card))}
-              </div>
+              <div className="cards">{playerHand.map((card) => renderCard(card))}</div>
             </div>
           </section>
 
           <section className="card game__panel">
             <h2>Game controls</h2>
-            <p className="muted">
-              {statusMessage}
-            </p>
-            <div className="actions">
-  <button className="secondary" onClick={() => handleSetBet(25)} type="button" disabled={isBettingLocked}>
-    25
-  </button>
-  <button className="secondary" onClick={() => handleSetBet(50)} type="button" disabled={isBettingLocked}>
-    50
-  </button>
-  <button className="secondary" onClick={() => handleSetBet(100)} type="button" disabled={isBettingLocked}>
-    100
-  </button>
-  <button className="secondary" onClick={() => handleSetBet(250)} type="button" disabled={isBettingLocked}>
-    250
-  </button>
-  <button className="secondary" onClick={() => handleSetBet(balance)} type="button" disabled={isBettingLocked}>
-    Max
-  </button>
-  <button className="secondary" onClick={() => handleSetBet(0)} type="button" disabled={isBettingLocked}>
-    Clear
-  </button>
-</div>
+            <p className="muted">{statusMessage}</p>
 
-  <button
-    className="secondary"
-    onClick={() => handleSetBet(25)}
-    type="button"
-    disabled={isBettingLocked}
-  >
-    25
-  </button>
-  <button
-    className="secondary"
-    onClick={() => handleSetBet(50)}
-    type="button"
-    disabled={isBettingLocked}
-  >
-    50
-  </button>
-  <button
-    className="secondary"
-    onClick={() => handleSetBet(100)}
-    type="button"
-    disabled={isBettingLocked}
-  >
-    100
-  </button>
-  <button
-    className="secondary"
-    onClick={() => handleSetBet(250)}
-    type="button"
-    disabled={isBettingLocked}
-  >
-    250
-  </button>
-  <button
-    className="secondary"
-    onClick={() => handleSetBet(balance)}
-    type="button"
-    disabled={isBettingLocked}
-  >
-    Max
-  </button>
-  <button
-    className="secondary"
-    onClick={() => handleSetBet(0)}
-    type="button"
-    disabled={isBettingLocked}
-  >
-    Clear
-  </button>
-</div>
+            <div className="game__bets">
+              <p>Balance: {balance}</p>
+              <p>Bet: {bet}</p>
 
-                  onClick={() => handleSetBet(balance)}
-                  type="button"
-                  disabled={isBettingLocked}
-                >
+              <div className="actions">
+                <button className="secondary" onClick={() => handleSetBet(25)} type="button" disabled={isBettingLocked}>
+                  25
+                </button>
+                <button className="secondary" onClick={() => handleSetBet(50)} type="button" disabled={isBettingLocked}>
+                  50
+                </button>
+                <button className="secondary" onClick={() => handleSetBet(100)} type="button" disabled={isBettingLocked}>
+                  100
+                </button>
+                <button className="secondary" onClick={() => handleSetBet(250)} type="button" disabled={isBettingLocked}>
+                  250
+                </button>
+                <button className="secondary" onClick={() => handleSetBet(balance)} type="button" disabled={isBettingLocked}>
                   Max
                 </button>
-                <button
-                  className="secondary"
-                  onClick={() => handleSetBet(0)}
-                  type="button"
-                  disabled={isBettingLocked}
-                >
+                <button className="secondary" onClick={() => handleSetBet(0)} type="button" disabled={isBettingLocked}>
                   Clear
                 </button>
               </div>
+
               <div className="actions">
                 <label>
                   Custom bet
                   <input
                     min="0"
-                    onChange={(event) => setCustomBet(event.target.value)}
                     step="1"
                     type="number"
                     value={customBet}
                     disabled={isBettingLocked}
+                    onChange={(event) => setCustomBet(event.target.value)}
                   />
                 </label>
-                <button
-                  className="secondary"
-                  onClick={handleCustomBet}
-                  type="button"
-                  disabled={isBettingLocked}
-                >
+                <button className="secondary" onClick={handleCustomBet} type="button" disabled={isBettingLocked}>
                   Set
                 </button>
               </div>
             </div>
+
             <div className="actions">
-              <button
-                className="secondary"
-                onClick={handleHit}
-                type="button"
-                disabled={gameState !== 'playerTurn'}
-              >
+              <button className="secondary" onClick={handleHit} type="button" disabled={gameState !== 'playerTurn'}>
                 Hit
               </button>
-              <button
-                className="secondary"
-                onClick={handleStand}
-                type="button"
-                disabled={gameState !== 'playerTurn'}
-              >
+              <button className="secondary" onClick={handleStand} type="button" disabled={gameState !== 'playerTurn'}>
                 Stand
               </button>
               <button
                 className="primary"
                 onClick={startRound}
                 type="button"
-                disabled={
-                  gameState === 'playerTurn' ||
-                  gameState === 'dealerTurn' ||
-                  bet === 0 ||
-                  balance <= 0
-                }
+                disabled={gameState === 'playerTurn' || gameState === 'dealerTurn' || bet === 0 || balance <= 0}
               >
                 Deal new round
               </button>
