@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import WebApp from '@twa-dev/sdk'
+import { createStarsInvoice } from './api/stars'
 import './App.css'
 
 const SCREEN = {
@@ -7,8 +8,6 @@ const SCREEN = {
   game: 'game',
   shop: 'shop',
 }
-
-const STARS_PAYMENTS_ENABLED = false
 
 const placeholderUser = {
   first_name: 'Guest',
@@ -127,6 +126,7 @@ function App() {
   const [customBet, setCustomBet] = useState('')
   const [statusNote, setStatusNote] = useState(null)
   const [shopNote, setShopNote] = useState(null)
+  const [loadingPackId, setLoadingPackId] = useState(null)
 
   const hitLockRef = useRef(false)
   const payoutAppliedRef = useRef(false)
@@ -201,45 +201,29 @@ function App() {
     setScreen(SCREEN.shop)
   }
 
-  const startStarsPurchase = async (packId) => {
+  const startStarsPurchase = async (pack) => {
     setShopNote(null)
-
-    if (!STARS_PAYMENTS_ENABLED) {
-      setShopNote('Coming soon: Telegram Stars payments are not enabled yet.')
-      return
-    }
+    setLoadingPackId(pack.id)
 
     try {
-      const initData = WebApp.initData || WebApp.initDataUnsafe || ''
-      const response = await fetch('/api/stars/create-invoice', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ packId, initData }),
+      const data = await createStarsInvoice({
+        userId: WebApp.initDataUnsafe?.user?.id ?? null,
+        packId: pack.id,
+        amountChips: pack.amount,
+        priceStars: pack.priceStars,
       })
 
-      if (!response.ok) {
-        throw new Error('Unable to create invoice.')
-      }
-
-      const data = await response.json()
-      if (!data?.invoiceUrl) {
-        setShopNote('Unable to start purchase. Please try again later.')
+      if (!data?.enabled) {
+        setShopNote('Coming soon — Stars payments will be enabled after backend integration.')
         return
       }
 
-      const { invoiceUrl } = data
-      if (typeof WebApp.openInvoice === 'function') {
-        WebApp.openInvoice(invoiceUrl)
-      } else if (typeof WebApp.openLink === 'function') {
-        WebApp.openLink(invoiceUrl)
-      } else {
-        window.open(invoiceUrl, '_blank', 'noopener,noreferrer')
-      }
+      setShopNote("Invoice created (stub). We'll wire Telegram Stars next.")
     } catch (error) {
       console.error(error)
       setShopNote('Unable to start purchase. Please try again later.')
+    } finally {
+      setLoadingPackId(null)
     }
   }
 
@@ -378,9 +362,9 @@ function App() {
   )
 
   const chipPacks = [
-    { id: 'pack_1000', amount: 1000 },
-    { id: 'pack_5000', amount: 5000 },
-    { id: 'pack_10000', amount: 10000 },
+    { id: 'chips_1000', amount: 1000, priceStars: 50 },
+    { id: 'chips_5000', amount: 5000, priceStars: 200 },
+    { id: 'chips_10000', amount: 10000, priceStars: 350 },
   ]
 
   return (
@@ -618,9 +602,15 @@ function App() {
                 <div className="card" key={pack.id}>
                   <h3>+{pack.amount.toLocaleString()} chips</h3>
                   <p className="muted">Pack ID: {pack.id}</p>
+                  <p className="muted">{pack.priceStars} Stars</p>
                   <div className="actions">
-                    <button className="primary" onClick={() => startStarsPurchase(pack.id)} type="button">
-                      Buy
+                    <button
+                      className="primary"
+                      onClick={() => startStarsPurchase(pack)}
+                      type="button"
+                      disabled={loadingPackId === pack.id}
+                    >
+                      {loadingPackId === pack.id ? 'Loading…' : 'Buy'}
                     </button>
                   </div>
                 </div>
