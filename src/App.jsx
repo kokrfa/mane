@@ -116,7 +116,7 @@ function App() {
   const [playerHand, setPlayerHand] = useState([])
   const [dealerHand, setDealerHand] = useState([])
   const [result, setResult] = useState(null)
-  const [isResultOpen, setIsResultOpen] = useState(false)
+  const [theme, setTheme] = useState('dark')
 
   const [balance, setBalance] = useState(1000)
   const [bet, setBet] = useState(0)
@@ -125,7 +125,6 @@ function App() {
 
   const hitLockRef = useRef(false)
   const payoutAppliedRef = useRef(false)
-  const resultShownRef = useRef(false)
   const lastBetRef = useRef(0)
 
   useEffect(() => {
@@ -171,12 +170,10 @@ function App() {
     setPlayerHand([])
     setDealerHand([])
     setResult(null)
-    setIsResultOpen(false)
     setStatusNote(null)
     setCustomBet('')
     payoutAppliedRef.current = false
     hitLockRef.current = false
-    resultShownRef.current = false
     lastBetRef.current = 0
   }
 
@@ -191,9 +188,7 @@ function App() {
     }
 
     payoutAppliedRef.current = false
-    resultShownRef.current = false
     lastBetRef.current = bet
-    setIsResultOpen(false)
     setStatusNote(null)
     setCustomBet('')
 
@@ -274,17 +269,9 @@ function App() {
       })
 
       payoutAppliedRef.current = true
-      setGameState('idle')
       // Bet is NOT forced to 0: player can quickly replay with same bet or change it.
     }
   }, [gameState, result, bet])
-
-  useEffect(() => {
-    if (gameState === 'idle' && result && payoutAppliedRef.current && !resultShownRef.current) {
-      setIsResultOpen(true)
-      resultShownRef.current = true
-    }
-  }, [gameState, result])
 
   const statusMessage = useMemo(() => {
     if (balance <= 0) return 'Out of chips. Buy more in the Shop.'
@@ -314,44 +301,89 @@ function App() {
     </div>
   )
 
+  const showRoundModal = gameState === 'roundEnd' && result
+
+  const handlePlayAgain = () => {
+    resetRound()
+    setGameState('idle')
+  }
+
+  const handleGoHome = () => {
+    resetRound()
+    setScreen(SCREEN.home)
+  }
+
   return (
-    <div className="app">
-      <header className="app__header">
-        <div>
-          <p className="app__eyebrow">Telegram Mini App</p>
-          <h1 className="app__title">Blackjack</h1>
-        </div>
+    <div className={`app theme-${theme}`}>
+      <div className="app__content">
+        <header className="app__header">
+          <div className="app__brand">
+            <p className="app__eyebrow">gobet mini app</p>
+            <h1 className="app__title">gobet</h1>
+          </div>
 
-        <nav className="app__nav">
-          <button
-            className={screen === SCREEN.home ? 'active' : ''}
-            onClick={() => {
-              resetRound()
-              setScreen(SCREEN.home)
-            }}
-            type="button"
-          >
-            Home
-          </button>
-          <button
-            className={screen === SCREEN.game ? 'active' : ''}
-            onClick={() => {
-              resetRound()
-              setScreen(SCREEN.game)
-            }}
-            type="button"
-          >
-            Game
-          </button>
-        </nav>
-      </header>
+          <div className="app__actions">
+            <nav className="app__nav">
+              <button
+                className={screen === SCREEN.home ? 'active' : ''}
+                onClick={() => {
+                  resetRound()
+                  setScreen(SCREEN.home)
+                }}
+                type="button"
+              >
+                Home
+              </button>
+              <button
+                className={screen === SCREEN.game ? 'active' : ''}
+                onClick={() => {
+                  resetRound()
+                  setScreen(SCREEN.game)
+                }}
+                type="button"
+              >
+                Game
+              </button>
+            </nav>
+            <button
+              className="theme-toggle"
+              onClick={() => setTheme((prev) => (prev === 'dark' ? 'light' : 'dark'))}
+              type="button"
+            >
+              {theme === 'dark' ? 'Light mode' : 'Dark mode'}
+            </button>
+          </div>
+        </header>
 
-      {screen === SCREEN.home ? (
-        <main className="home">
-          <section className="card">
-            <h2>Welcome back</h2>
-            <p className="muted">Signed in with Telegram</p>
-            <div className="user">
+        {screen === SCREEN.home ? (
+          <main className="home">
+          <section className="card home__hero">
+            <div className="home__logo">gobet</div>
+            <p className="home__subtitle">Blackjack Mini Game</p>
+            <p className="home__tagline">Play smart. Win big.</p>
+            <div className="actions home__actions">
+              <button
+                className="primary"
+                onClick={() => {
+                  resetRound()
+                  setScreen(SCREEN.game)
+                }}
+                type="button"
+              >
+                Play Blackjack
+              </button>
+              <button className="secondary" type="button">
+                How to play
+              </button>
+            </div>
+          </section>
+
+          <section className="card home__user-card">
+            <div>
+              <h2>Welcome back</h2>
+              <p className="muted">Signed in with Telegram</p>
+            </div>
+            <div className="user user--compact">
               <div className="user__avatar">{user.first_name?.[0] ?? 'G'}</div>
               <div>
                 <p className="user__name">
@@ -361,60 +393,52 @@ function App() {
               </div>
             </div>
           </section>
-
-          <section className="card">
-            <h2>Quick actions</h2>
-            <p className="muted">Start a new Blackjack round or explore the upcoming features.</p>
-            <div className="actions">
-              <button
-                className="primary"
-                onClick={() => {
-                  resetRound()
-                  setScreen(SCREEN.game)
-                }}
-                type="button"
-              >
-                Start game
-              </button>
-              <button className="secondary" type="button">
-                View rules
-              </button>
-            </div>
-          </section>
-        </main>
-      ) : (
-        <main className="game">
+          </main>
+        ) : (
+          <main className="game">
           <section className="table">
-            <div className="hand">
-              <div className="hand__header">
-                <p className="hand__label">Dealer</p>
-                <p className="hand__total">Total: {dealerTotalDisplay}</p>
-              </div>
-              <div className="cards">
-                {dealerHand.map((card, index) =>
-                  isDealerHidden && index === 1
-                    ? renderHiddenCard(`${card.id}-hidden`)
-                    : renderCard(card),
-                )}
+            <div className="table__row table__row--dealer">
+              <div className="hand">
+                <div className="hand__header">
+                  <p className="hand__label">Dealer</p>
+                  <p className="hand__total">Total: {dealerTotalDisplay}</p>
+                </div>
+                <div className="cards">
+                  {dealerHand.map((card, index) =>
+                    isDealerHidden && index === 1
+                      ? renderHiddenCard(`${card.id}-hidden`)
+                      : renderCard(card),
+                  )}
+                </div>
               </div>
             </div>
 
-            <div className="hand">
-              <div className="hand__header">
-                <p className="hand__label">You</p>
-                <p className="hand__total">Total: {playerTotal}</p>
+            <div className="table__divider">
+              <span>Blackjack Table</span>
+            </div>
+
+            <div className="table__row table__row--player">
+              <div className="hand">
+                <div className="hand__header">
+                  <p className="hand__label">You</p>
+                  <p className="hand__total">Total: {playerTotal}</p>
+                </div>
+                <div className="cards">{playerHand.map((card) => renderCard(card))}</div>
               </div>
-              <div className="cards">{playerHand.map((card) => renderCard(card))}</div>
             </div>
           </section>
 
           <section className="card game__panel">
-            <h2>Game controls</h2>
-            <p className="muted">{statusMessage}</p>
+            <div className="panel__header">
+              <h2>Controls</h2>
+              <p className="muted">{statusMessage}</p>
+            </div>
 
             <div className="game__bets">
-              <p>Balance: {balance}</p>
-              <p>Bet: {bet}</p>
+              <div className="bet__summary">
+                <p>Balance: {balance}</p>
+                <p>Bet: {bet}</p>
+              </div>
 
               <div className="actions">
                 <button className="secondary" onClick={() => handleSetBet(25)} type="button" disabled={isBettingLocked}>
@@ -437,8 +461,8 @@ function App() {
                 </button>
               </div>
 
-              <div className="actions">
-                <label>
+              <div className="actions bet__custom">
+                <label className="field">
                   Custom bet
                   <input
                     min="0"
@@ -455,7 +479,7 @@ function App() {
               </div>
             </div>
 
-            <div className="actions">
+            <div className="actions game__actions">
               <button className="secondary" onClick={handleHit} type="button" disabled={gameState !== 'playerTurn'}>
                 Hit
               </button>
@@ -468,44 +492,30 @@ function App() {
                 type="button"
                 disabled={gameState === 'playerTurn' || gameState === 'dealerTurn' || bet === 0 || balance <= 0}
               >
-                Deal new round
+                Deal
               </button>
             </div>
           </section>
-        </main>
-      )}
-      {isResultOpen ? (
-        <div className="modal-overlay" role="presentation">
-          <div className="modal-card" role="dialog" aria-modal="true" aria-label="Round result">
-            <h2>{RESULT_LABEL[result] ?? 'Round over.'}</h2>
-            <p className="muted">Last bet: {lastBetRef.current}</p>
-            <p className="muted">Balance: {balance}</p>
-            <div className="actions">
-              <button
-                className="primary"
-                onClick={() => {
-                  setIsResultOpen(false)
-                  setGameState('idle')
-                }}
-                type="button"
-              >
-                Play again
-              </button>
-              <button
-                className="secondary"
-                onClick={() => {
-                  setIsResultOpen(false)
-                  resetRound()
-                  setScreen(SCREEN.home)
-                }}
-                type="button"
-              >
-                Home
-              </button>
+          {showRoundModal ? (
+            <div className="modal-overlay" role="presentation">
+              <div className="modal-card" role="dialog" aria-modal="true" aria-label="Round result">
+                <h2>{RESULT_LABEL[result] ?? 'Round over.'}</h2>
+                <p className="muted">Last bet: {lastBetRef.current}</p>
+                <p className="muted">Balance: {balance}</p>
+                <div className="actions">
+                  <button className="primary" onClick={handlePlayAgain} type="button">
+                    Play again
+                  </button>
+                  <button className="secondary" onClick={handleGoHome} type="button">
+                    Home
+                  </button>
+                </div>
+              </div>
             </div>
-          </div>
-        </div>
-      ) : null}
+          ) : null}
+        </main>
+        )}
+      </div>
     </div>
   )
 }
