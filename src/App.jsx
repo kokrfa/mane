@@ -5,7 +5,10 @@ import './App.css'
 const SCREEN = {
   home: 'home',
   game: 'game',
+  shop: 'shop',
 }
+
+const STARS_PAYMENTS_ENABLED = false
 
 const placeholderUser = {
   first_name: 'Guest',
@@ -123,6 +126,7 @@ function App() {
   const [bet, setBet] = useState(0)
   const [customBet, setCustomBet] = useState('')
   const [statusNote, setStatusNote] = useState(null)
+  const [shopNote, setShopNote] = useState(null)
 
   const hitLockRef = useRef(false)
   const payoutAppliedRef = useRef(false)
@@ -179,6 +183,64 @@ function App() {
     hitLockRef.current = false
     resultShownRef.current = false
     lastBetRef.current = 0
+  }
+
+  const goToHome = () => {
+    resetRound()
+    setScreen(SCREEN.home)
+  }
+
+  const goToGame = () => {
+    resetRound()
+    setScreen(SCREEN.game)
+  }
+
+  const goToShop = () => {
+    resetRound()
+    setShopNote(null)
+    setScreen(SCREEN.shop)
+  }
+
+  const startStarsPurchase = async (packId) => {
+    setShopNote(null)
+
+    if (!STARS_PAYMENTS_ENABLED) {
+      setShopNote('Coming soon: Telegram Stars payments are not enabled yet.')
+      return
+    }
+
+    try {
+      const initData = WebApp.initData || WebApp.initDataUnsafe || ''
+      const response = await fetch('/api/stars/create-invoice', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ packId, initData }),
+      })
+
+      if (!response.ok) {
+        throw new Error('Unable to create invoice.')
+      }
+
+      const data = await response.json()
+      if (!data?.invoiceUrl) {
+        setShopNote('Unable to start purchase. Please try again later.')
+        return
+      }
+
+      const { invoiceUrl } = data
+      if (typeof WebApp.openInvoice === 'function') {
+        WebApp.openInvoice(invoiceUrl)
+      } else if (typeof WebApp.openLink === 'function') {
+        WebApp.openLink(invoiceUrl)
+      } else {
+        window.open(invoiceUrl, '_blank', 'noopener,noreferrer')
+      }
+    } catch (error) {
+      console.error(error)
+      setShopNote('Unable to start purchase. Please try again later.')
+    }
   }
 
   const startRound = () => {
@@ -315,6 +377,12 @@ function App() {
     </div>
   )
 
+  const chipPacks = [
+    { id: 'pack_1000', amount: 1000 },
+    { id: 'pack_5000', amount: 5000 },
+    { id: 'pack_10000', amount: 10000 },
+  ]
+
   return (
     <div className={`app theme-${theme}`}>
       <div className="app__content">
@@ -326,24 +394,10 @@ function App() {
 
           <div className="app__actions">
             <nav className="app__nav">
-              <button
-                className={screen === SCREEN.home ? 'active' : ''}
-                onClick={() => {
-                  resetRound()
-                  setScreen(SCREEN.home)
-                }}
-                type="button"
-              >
+              <button className={screen === SCREEN.home ? 'active' : ''} onClick={goToHome} type="button">
                 Home
               </button>
-              <button
-                className={screen === SCREEN.game ? 'active' : ''}
-                onClick={() => {
-                  resetRound()
-                  setScreen(SCREEN.game)
-                }}
-                type="button"
-              >
+              <button className={screen === SCREEN.game ? 'active' : ''} onClick={goToGame} type="button">
                 Game
               </button>
             </nav>
@@ -359,146 +413,229 @@ function App() {
 
         {screen === SCREEN.home ? (
           <main className="home">
-          <section className="card home__hero">
-            <div className="home__logo">gobet</div>
-            <p className="home__subtitle">Blackjack Mini Game</p>
-            <p className="home__tagline">Play smart. Win big.</p>
-            <div className="actions home__actions">
-              <button
-                className="primary"
-                onClick={() => {
-                  resetRound()
-                  setScreen(SCREEN.game)
-                }}
-                type="button"
-              >
-                Play Blackjack
-              </button>
-              <button className="secondary" type="button">
-                How to play
-              </button>
-            </div>
-          </section>
-
-          <section className="card home__user-card">
-            <div>
-              <h2>Welcome back</h2>
-              <p className="muted">Signed in with Telegram</p>
-            </div>
-            <div className="user user--compact">
-              <div className="user__avatar">{user.first_name?.[0] ?? 'G'}</div>
-              <div>
-                <p className="user__name">
-                  {user.first_name} {user.last_name}
-                </p>
-                <p className="user__handle">@{user.username}</p>
+            <section className="card home__hero">
+              <div className="home__logo">gobet</div>
+              <p className="home__subtitle">Blackjack Mini Game</p>
+              <p className="home__tagline">Play smart. Win big.</p>
+              <div className="actions home__actions">
+                <button className="primary" onClick={goToGame} type="button">
+                  Play Blackjack
+                </button>
+                <button className="secondary" onClick={goToShop} type="button">
+                  Buy chips
+                </button>
+                <button className="secondary" type="button">
+                  How to play
+                </button>
               </div>
-            </div>
-          </section>
+            </section>
+
+            <section className="card home__user-card">
+              <div>
+                <h2>Welcome back</h2>
+                <p className="muted">Signed in with Telegram</p>
+              </div>
+              <div className="user user--compact">
+                <div className="user__avatar">{user.first_name?.[0] ?? 'G'}</div>
+                <div>
+                  <p className="user__name">
+                    {user.first_name} {user.last_name}
+                  </p>
+                  <p className="user__handle">@{user.username}</p>
+                </div>
+              </div>
+            </section>
+          </main>
+        ) : screen === SCREEN.game ? (
+          <main className="game">
+            <section className="table">
+              <div className="table__row table__row--dealer">
+                <div className="hand">
+                  <div className="hand__header">
+                    <p className="hand__label">Dealer</p>
+                    <p className="hand__total">Total: {dealerTotalDisplay}</p>
+                  </div>
+                  <div className="cards">
+                    {dealerHand.map((card, index) =>
+                      isDealerHidden && index === 1
+                        ? renderHiddenCard(`${card.id}-hidden`)
+                        : renderCard(card),
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              <div className="table__divider">
+                <span>Blackjack Table</span>
+              </div>
+
+              <div className="table__row table__row--player">
+                <div className="hand">
+                  <div className="hand__header">
+                    <p className="hand__label">You</p>
+                    <p className="hand__total">Total: {playerTotal}</p>
+                  </div>
+                  <div className="cards">{playerHand.map((card) => renderCard(card))}</div>
+                </div>
+              </div>
+            </section>
+
+            <section className="card game__panel">
+              <div className="panel__header">
+                <h2>Controls</h2>
+                <p className="muted">{statusMessage}</p>
+              </div>
+
+              <div className="game__bets">
+                <div className="bet__summary">
+                  <p>Balance: {balance}</p>
+                  <p>Bet: {bet}</p>
+                </div>
+                {balance <= 0 ? <p className="muted">Out of chips. Buy more in the Shop.</p> : null}
+
+                <div className="actions">
+                  <button
+                    className="secondary"
+                    onClick={() => handleSetBet(25)}
+                    type="button"
+                    disabled={isBettingLocked}
+                  >
+                    25
+                  </button>
+                  <button
+                    className="secondary"
+                    onClick={() => handleSetBet(50)}
+                    type="button"
+                    disabled={isBettingLocked}
+                  >
+                    50
+                  </button>
+                  <button
+                    className="secondary"
+                    onClick={() => handleSetBet(100)}
+                    type="button"
+                    disabled={isBettingLocked}
+                  >
+                    100
+                  </button>
+                  <button
+                    className="secondary"
+                    onClick={() => handleSetBet(250)}
+                    type="button"
+                    disabled={isBettingLocked}
+                  >
+                    250
+                  </button>
+                  <button
+                    className="secondary"
+                    onClick={() => handleSetBet(balance)}
+                    type="button"
+                    disabled={isBettingLocked}
+                  >
+                    Max
+                  </button>
+                  <button
+                    className="secondary"
+                    onClick={() => handleSetBet(0)}
+                    type="button"
+                    disabled={isBettingLocked}
+                  >
+                    Clear
+                  </button>
+                </div>
+
+                <div className="actions bet__custom">
+                  <label className="field">
+                    Custom bet
+                    <input
+                      min="0"
+                      step="1"
+                      type="number"
+                      value={customBet}
+                      disabled={isBettingLocked}
+                      onChange={(event) => setCustomBet(event.target.value)}
+                    />
+                  </label>
+                  <button
+                    className="secondary"
+                    onClick={handleCustomBet}
+                    type="button"
+                    disabled={isBettingLocked}
+                  >
+                    Set
+                  </button>
+                </div>
+
+                <div className="actions">
+                  <button
+                    className={balance <= 0 ? 'primary' : 'secondary'}
+                    onClick={goToShop}
+                    type="button"
+                  >
+                    Buy chips
+                  </button>
+                </div>
+              </div>
+
+              <div className="actions game__actions">
+                <button
+                  className="secondary"
+                  onClick={handleHit}
+                  type="button"
+                  disabled={gameState !== 'playerTurn'}
+                >
+                  Hit
+                </button>
+                <button
+                  className="secondary"
+                  onClick={handleStand}
+                  type="button"
+                  disabled={gameState !== 'playerTurn'}
+                >
+                  Stand
+                </button>
+                <button
+                  className="primary"
+                  onClick={startRound}
+                  type="button"
+                  disabled={gameState === 'playerTurn' || gameState === 'dealerTurn' || bet === 0 || balance <= 0}
+                >
+                  Deal
+                </button>
+              </div>
+            </section>
           </main>
         ) : (
-          <main className="game">
-          <section className="table">
-            <div className="table__row table__row--dealer">
-              <div className="hand">
-                <div className="hand__header">
-                  <p className="hand__label">Dealer</p>
-                  <p className="hand__total">Total: {dealerTotalDisplay}</p>
+          <main className="shop">
+            <section className="card">
+              <h2>Shop</h2>
+              <p className="muted">Payments via Telegram Stars (backend) — coming soon.</p>
+              {shopNote ? <p className="muted">{shopNote}</p> : null}
+            </section>
+
+            <section className="shop__packs">
+              {chipPacks.map((pack) => (
+                <div className="card" key={pack.id}>
+                  <h3>+{pack.amount.toLocaleString()} chips</h3>
+                  <p className="muted">Pack ID: {pack.id}</p>
+                  <div className="actions">
+                    <button className="primary" onClick={() => startStarsPurchase(pack.id)} type="button">
+                      Buy
+                    </button>
+                  </div>
                 </div>
-                <div className="cards">
-                  {dealerHand.map((card, index) =>
-                    isDealerHidden && index === 1
-                      ? renderHiddenCard(`${card.id}-hidden`)
-                      : renderCard(card),
-                  )}
-                </div>
-              </div>
-            </div>
+              ))}
+            </section>
 
-            <div className="table__divider">
-              <span>Blackjack Table</span>
-            </div>
-
-            <div className="table__row table__row--player">
-              <div className="hand">
-                <div className="hand__header">
-                  <p className="hand__label">You</p>
-                  <p className="hand__total">Total: {playerTotal}</p>
-                </div>
-                <div className="cards">{playerHand.map((card) => renderCard(card))}</div>
-              </div>
-            </div>
-          </section>
-
-          <section className="card game__panel">
-            <div className="panel__header">
-              <h2>Controls</h2>
-              <p className="muted">{statusMessage}</p>
-            </div>
-
-            <div className="game__bets">
-              <div className="bet__summary">
-                <p>Balance: {balance}</p>
-                <p>Bet: {bet}</p>
-              </div>
-
-              <div className="actions">
-                <button className="secondary" onClick={() => handleSetBet(25)} type="button" disabled={isBettingLocked}>
-                  25
-                </button>
-                <button className="secondary" onClick={() => handleSetBet(50)} type="button" disabled={isBettingLocked}>
-                  50
-                </button>
-                <button className="secondary" onClick={() => handleSetBet(100)} type="button" disabled={isBettingLocked}>
-                  100
-                </button>
-                <button className="secondary" onClick={() => handleSetBet(250)} type="button" disabled={isBettingLocked}>
-                  250
-                </button>
-                <button className="secondary" onClick={() => handleSetBet(balance)} type="button" disabled={isBettingLocked}>
-                  Max
-                </button>
-                <button className="secondary" onClick={() => handleSetBet(0)} type="button" disabled={isBettingLocked}>
-                  Clear
-                </button>
-              </div>
-
-              <div className="actions bet__custom">
-                <label className="field">
-                  Custom bet
-                  <input
-                    min="0"
-                    step="1"
-                    type="number"
-                    value={customBet}
-                    disabled={isBettingLocked}
-                    onChange={(event) => setCustomBet(event.target.value)}
-                  />
-                </label>
-                <button className="secondary" onClick={handleCustomBet} type="button" disabled={isBettingLocked}>
-                  Set
-                </button>
-              </div>
-            </div>
-
-            <div className="actions game__actions">
-              <button className="secondary" onClick={handleHit} type="button" disabled={gameState !== 'playerTurn'}>
-                Hit
+            <div className="actions">
+              <button className="secondary" onClick={goToHome} type="button">
+                Back to Home
               </button>
-              <button className="secondary" onClick={handleStand} type="button" disabled={gameState !== 'playerTurn'}>
-                Stand
-              </button>
-              <button
-                className="primary"
-                onClick={startRound}
-                type="button"
-                disabled={gameState === 'playerTurn' || gameState === 'dealerTurn' || bet === 0 || balance <= 0}
-              >
-                Deal
+              <button className="primary" onClick={goToGame} type="button">
+                Go to Game
               </button>
             </div>
-          </section>
-        </main>
+          </main>
         )}
       </div>
       {isResultOpen ? (
