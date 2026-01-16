@@ -116,6 +116,7 @@ function App() {
   const [playerHand, setPlayerHand] = useState([])
   const [dealerHand, setDealerHand] = useState([])
   const [result, setResult] = useState(null)
+  const [isResultOpen, setIsResultOpen] = useState(false)
 
   const [balance, setBalance] = useState(1000)
   const [bet, setBet] = useState(0)
@@ -124,6 +125,7 @@ function App() {
 
   const hitLockRef = useRef(false)
   const payoutAppliedRef = useRef(false)
+  const resultShownRef = useRef(false)
   const lastBetRef = useRef(0)
 
   useEffect(() => {
@@ -169,10 +171,12 @@ function App() {
     setPlayerHand([])
     setDealerHand([])
     setResult(null)
+    setIsResultOpen(false)
     setStatusNote(null)
     setCustomBet('')
     payoutAppliedRef.current = false
     hitLockRef.current = false
+    resultShownRef.current = false
     lastBetRef.current = 0
   }
 
@@ -187,7 +191,9 @@ function App() {
     }
 
     payoutAppliedRef.current = false
+    resultShownRef.current = false
     lastBetRef.current = bet
+    setIsResultOpen(false)
     setStatusNote(null)
     setCustomBet('')
 
@@ -272,6 +278,13 @@ function App() {
       // Bet is NOT forced to 0: player can quickly replay with same bet or change it.
     }
   }, [gameState, result, bet])
+
+  useEffect(() => {
+    if (gameState === 'idle' && result && payoutAppliedRef.current && !resultShownRef.current) {
+      setIsResultOpen(true)
+      resultShownRef.current = true
+    }
+  }, [gameState, result])
 
   const statusMessage = useMemo(() => {
     if (balance <= 0) return 'Out of chips. Buy more in the Shop.'
@@ -461,6 +474,38 @@ function App() {
           </section>
         </main>
       )}
+      {isResultOpen ? (
+        <div className="modal-overlay" role="presentation">
+          <div className="modal-card" role="dialog" aria-modal="true" aria-label="Round result">
+            <h2>{RESULT_LABEL[result] ?? 'Round over.'}</h2>
+            <p className="muted">Last bet: {lastBetRef.current}</p>
+            <p className="muted">Balance: {balance}</p>
+            <div className="actions">
+              <button
+                className="primary"
+                onClick={() => {
+                  setIsResultOpen(false)
+                  setGameState('idle')
+                }}
+                type="button"
+              >
+                Play again
+              </button>
+              <button
+                className="secondary"
+                onClick={() => {
+                  setIsResultOpen(false)
+                  resetRound()
+                  setScreen(SCREEN.home)
+                }}
+                type="button"
+              >
+                Home
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   )
 }
