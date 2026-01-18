@@ -1,5 +1,7 @@
+const API_BASE_URL = import.meta.env.VITE_API_URL?.replace(/\/$/, '') || ''
+
 export const createStarsInvoice = async ({ userId, packId, amountChips, priceStars }) => {
-  const response = await fetch('/api/stars/create-invoice', {
+  const response = await fetch(`${API_BASE_URL}/api/stars/create-invoice`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
