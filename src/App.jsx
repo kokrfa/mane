@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import WebApp from '@twa-dev/sdk'
-import { createStarsInvoice } from './api/stars'
+import { createStarsInvoice, fetchBalance } from './api/stars'
 import './App.css'
 
 const SCREEN = {
@@ -140,6 +140,24 @@ function App() {
 
   const user = useMemo(() => WebApp.initDataUnsafe?.user ?? placeholderUser, [])
 
+  const syncBalance = async () => {
+    const telegramId = WebApp.initDataUnsafe?.user?.id
+    if (!telegramId) return
+
+    try {
+      const data = await fetchBalance({ userId: telegramId })
+      if (typeof data?.chips === 'number') {
+        setBalance(data.chips)
+      }
+    } catch (error) {
+      console.error('Unable to sync balance', error)
+    }
+  }
+
+  useEffect(() => {
+    syncBalance()
+  }, [])
+
   const playerTotal = useMemo(() => calculateHandValue(playerHand), [playerHand])
   const dealerTotal = useMemo(() => calculateHandValue(dealerHand), [dealerHand])
 
@@ -214,11 +232,44 @@ function App() {
       })
 
       if (!data?.enabled) {
-        setShopNote('Coming soon — Stars payments will be enabled after backend integration.')
+        if (data?.reason === 'no_user') {
+          setShopNote('Open this mini app inside Telegram to buy chips with Stars.')
+        } else {
+          setShopNote('Coming soon — Stars payments will be enabled after backend integration.')
+        }
         return
       }
 
-      setShopNote("Invoice created (stub). We'll wire Telegram Stars next.")
+      if (!data?.invoiceLink) {
+        setShopNote('Unable to start payment. Please try again.')
+        return
+      }
+
+      if (!WebApp?.openInvoice) {
+        setShopNote('Telegram Stars checkout is only available inside Telegram.')
+        return
+      }
+
+      WebApp.openInvoice(data.invoiceLink, async (status) => {
+        if (status === 'paid') {
+          setShopNote('Payment successful! Updating your balance...')
+          await syncBalance()
+          setShopNote('Chips added to your balance.')
+          return
+        }
+
+        if (status === 'cancelled') {
+          setShopNote('Payment cancelled.')
+          return
+        }
+
+        if (status === 'failed') {
+          setShopNote('Payment failed. Please try again.')
+          return
+        }
+
+        setShopNote('Payment status updated.')
+      })
     } catch (error) {
       console.error(error)
       setShopNote('Unable to start purchase. Please try again later.')
@@ -593,7 +644,7 @@ function App() {
           <main className="shop">
             <section className="card">
               <h2>Shop</h2>
-              <p className="muted">Payments via Telegram Stars (backend) — coming soon.</p>
+              <p className="muted">Payments via Telegram Stars.</p>
               {shopNote ? <p className="muted">{shopNote}</p> : null}
             </section>
 
