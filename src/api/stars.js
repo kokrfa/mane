@@ -20,3 +20,15 @@ export const createStarsInvoice = async ({ userId, packId, amountChips, priceSta
 
   return response.json()
 }
+
+export const fetchBalance = async ({ userId }) => {
+  const response = await fetch(
+    `${API_BASE_URL}/api/me/balance?userId=${encodeURIComponent(String(userId))}`,
+  )
+
+  if (!response.ok) {
+    throw new Error('Unable to fetch balance.')
+  }
+
+  return response.json()
+}
