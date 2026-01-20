@@ -222,6 +222,7 @@ function App() {
   const startStarsPurchase = async (pack) => {
     setShopNote(null)
     setLoadingPackId(pack.id)
+    const stopLoading = () => setLoadingPackId(null)
 
     try {
       const data = await createStarsInvoice({
@@ -237,44 +238,39 @@ function App() {
         } else {
           setShopNote('Coming soon — Stars payments will be enabled after backend integration.')
         }
+        stopLoading()
         return
       }
 
       if (!data?.invoiceLink) {
         setShopNote('Unable to start payment. Please try again.')
+        stopLoading()
         return
       }
 
       if (!WebApp?.openInvoice) {
         setShopNote('Telegram Stars checkout is only available inside Telegram.')
+        stopLoading()
         return
       }
 
-      WebApp.openInvoice(data.invoiceLink, async (status) => {
+      WebApp.openInvoice(data.invoiceLink, (status) => {
         if (status === 'paid') {
-          setShopNote('Payment successful! Updating your balance...')
-          await syncBalance()
-          setShopNote('Chips added to your balance.')
-          return
-        }
-
-        if (status === 'cancelled') {
+          setBalance((prev) => prev + pack.amount)
+          setShopNote('Payment successful! Chips added to your balance.')
+        } else if (status === 'cancelled') {
           setShopNote('Payment cancelled.')
-          return
-        }
-
-        if (status === 'failed') {
+        } else if (status === 'failed') {
           setShopNote('Payment failed. Please try again.')
-          return
+        } else {
+          setShopNote('Payment status updated.')
         }
-
-        setShopNote('Payment status updated.')
+        stopLoading()
       })
     } catch (error) {
       console.error(error)
       setShopNote('Unable to start purchase. Please try again later.')
-    } finally {
-      setLoadingPackId(null)
+      stopLoading()
     }
   }
 

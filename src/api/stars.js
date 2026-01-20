@@ -1,4 +1,4 @@
-const API_BASE_URL = import.meta.env.VITE_API_URL?.replace(/\/$/, '') || ''
+const API_BASE_URL = import.meta.env.VITE_API_URL?.trim().replace(/\/$/, '') || ''
 
 export const createStarsInvoice = async ({ userId, packId, amountChips, priceStars }) => {
   const response = await fetch(`${API_BASE_URL}/api/stars/create-invoice`, {
@@ -14,11 +14,16 @@ export const createStarsInvoice = async ({ userId, packId, amountChips, priceSta
     }),
   })
 
+  const data = await response.json().catch(() => null)
+
   if (!response.ok) {
+    if (data) {
+      return data
+    }
     throw new Error('Unable to create invoice.')
   }
 
-  return response.json()
+  return data
 }
 
 export const fetchBalance = async ({ userId }) => {
