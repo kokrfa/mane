@@ -1,7 +1,7 @@
 import cors from 'cors'
 import dotenv from 'dotenv'
 import express from 'express'
-import fs from 'fs'
+import { addChips, getBalance } from './store.js'
 
 dotenv.config()
 
@@ -20,43 +20,6 @@ const corsOrigins = (process.env.CORS_ORIGIN || '')
   .filter(Boolean)
 
 const allowedOrigins = new Set(['http://localhost:5173', ...corsOrigins])
-
-const balancesPath = process.env.BALANCES_PATH || '/tmp/balances.json'
-
-const loadBalances = () => {
-  try {
-    if (fs.existsSync(balancesPath)) {
-      const raw = fs.readFileSync(balancesPath, 'utf8')
-      return raw ? JSON.parse(raw) : {}
-    }
-  } catch (error) {
-    console.warn('Unable to read balances file', error)
-  }
-  return {}
-}
-
-let balances = loadBalances()
-
-const saveBalances = () => {
-  try {
-    fs.writeFileSync(balancesPath, JSON.stringify(balances, null, 2))
-  } catch (error) {
-    console.error('Unable to save balances file', error)
-  }
-}
-
-const getBalance = (userId) => balances[String(userId)]?.chips ?? 0
-
-const creditBalance = (userId, amount) => {
-  const key = String(userId)
-  const nextBalance = getBalance(key) + amount
-  balances = {
-    ...balances,
-    [key]: { chips: nextBalance },
-  }
-  saveBalances()
-  return nextBalance
-}
 
 const callTelegram = async (method, body) => {
   const token = process.env.TELEGRAM_BOT_TOKEN
@@ -99,14 +62,14 @@ app.get('/api/health', (_req, res) => {
   res.json({ ok: true })
 })
 
-app.get('/api/me/balance', (req, res) => {
+app.get('/api/chips/balance', (req, res) => {
   const { userId } = req.query
   if (!userId) {
     res.status(400).json({ error: 'userId_required' })
     return
   }
 
-  res.json({ chips: getBalance(userId) })
+  res.json({ userId: String(userId), balance: getBalance(userId) })
 })
 
 const validateAmount = (value) => {
@@ -158,11 +121,12 @@ app.post('/api/stars/create-invoice', async (req, res) => {
       priceStars: priceStarsValue,
     })
     const invoiceLink = await callTelegram('createInvoiceLink', {
-      title: 'Chips pack',
-      description: `Buy +${amountChipsValue} chips`,
+      title: 'gobet chips',
+      description: `${amountChipsValue} chips`,
       payload,
+      provider_token: '',
       currency: 'XTR',
-      prices: [{ label: `+${amountChipsValue} chips`, amount: priceStarsValue }],
+      prices: [{ label: `${amountChipsValue} chips`, amount: priceStarsValue }],
     })
 
     res.json({
@@ -192,30 +156,32 @@ const handleTelegramWebhook = async (req, res) => {
 
     const successfulPayment = update?.message?.successful_payment
     if (successfulPayment) {
-      const userId = update?.message?.from?.id
       const payload = successfulPayment.invoice_payload
-      let packId = null
+      let payloadData = null
 
       if (payload) {
         try {
-          const parsed = JSON.parse(payload)
-          packId = parsed?.packId
+          payloadData = JSON.parse(payload)
         } catch (error) {
           console.warn('Unable to parse invoice payload', error)
         }
       }
 
-      const pack = packId ? PACKS[packId] : null
-      if (!userId || !pack) {
-        console.warn('Missing user or pack for payment', { userId, packId })
-      } else if (successfulPayment.currency === 'XTR' && successfulPayment.total_amount !== pack.stars) {
+      const userId = payloadData?.userId ?? update?.message?.from?.id
+      const packId = payloadData?.packId
+      const amountChips = validateAmount(payloadData?.amountChips)
+      const priceStars = validateAmount(payloadData?.priceStars)
+
+      if (!userId || !packId || !amountChips || !priceStars) {
+        console.warn('Missing payment metadata', { userId, packId, amountChips, priceStars })
+      } else if (successfulPayment.currency === 'XTR' && successfulPayment.total_amount !== priceStars) {
         console.warn('Payment amount mismatch', {
-          expected: pack.stars,
+          expected: priceStars,
           received: successfulPayment.total_amount,
         })
       } else {
-        const newBalance = creditBalance(userId, pack.chips)
-        console.log('Credited chips', { userId, packId, newBalance })
+        const newBalance = addChips(userId, amountChips)
+        console.log('Payment success', { userId, packId, newBalance })
       }
     }
   } catch (error) {

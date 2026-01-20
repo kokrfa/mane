@@ -40,6 +40,12 @@ npm run build
 - The app expects to be loaded inside Telegram to access real user data.
 - When run locally in a browser, a placeholder user will be shown.
 - Connect the app to your bot and register it as a Mini App to test within Telegram.
+- For Telegram Stars payments, enable the backend env var `STARS_PAYMENTS_ENABLED=true` on Render.
+- Configure the Telegram webhook to point at the backend webhook endpoint:
+  `https://mane-backend.onrender.com/api/telegram/webhook`.
+- You can set the webhook with:
+  `https://api.telegram.org/bot<TOKEN>/setWebhook?url=https://mane-backend.onrender.com/api/telegram/webhook`.
+- Stars payments require the Mini App to be opened inside Telegram.
 
 ## Next Steps
 
