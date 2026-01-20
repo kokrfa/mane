@@ -75,7 +75,7 @@ const callTelegram = async (method, body) => {
   const data = await response.json().catch(() => null)
   if (!response.ok || !data?.ok) {
     console.error('Telegram API error', { method, status: response.status, data })
-    throw new Error('Telegram API request failed')
+    throw new Error(data?.description || 'Telegram API request failed')
   }
 
   return data.result
@@ -109,18 +109,38 @@ app.get('/api/me/balance', (req, res) => {
   res.json({ chips: getBalance(userId) })
 })
 
-app.post('/api/stars/create-invoice', async (req, res) => {
-  const { userId, packId } = req.body || {}
-  console.log('Create invoice request', { userId, packId })
+const validateAmount = (value) => {
+  const numeric = Number(value)
+  if (!Number.isFinite(numeric) || numeric <= 0) {
+    return null
+  }
+  return numeric
+}
 
-  const pack = PACKS[packId]
-  if (!pack) {
-    res.status(400).json({ enabled: false, reason: 'invalid_pack' })
+app.post('/api/stars/create-invoice', async (req, res) => {
+  const { userId, packId, amountChips, priceStars } = req.body || {}
+  console.log('Create invoice request', { userId, packId, amountChips, priceStars })
+
+  if (!userId) {
+    res.status(400).json({ enabled: false, reason: 'no_user' })
     return
   }
 
-  if (!userId) {
-    res.json({ enabled: false, reason: 'no_user' })
+  if (!packId) {
+    res.status(400).json({ enabled: false, reason: 'invalid_request' })
+    return
+  }
+
+  const amountChipsValue = validateAmount(amountChips)
+  const priceStarsValue = validateAmount(priceStars)
+  if (!amountChipsValue || !priceStarsValue) {
+    res.status(400).json({ enabled: false, reason: 'invalid_request' })
+    return
+  }
+
+  const pack = PACKS[packId]
+  if (!pack || pack.chips !== amountChipsValue || pack.stars !== priceStarsValue) {
+    res.status(400).json({ enabled: false, reason: 'invalid_pack' })
     return
   }
 
@@ -131,29 +151,35 @@ app.post('/api/stars/create-invoice', async (req, res) => {
   }
 
   try {
-    const payload = JSON.stringify({ packId, userId })
+    const payload = JSON.stringify({
+      userId,
+      packId,
+      amountChips: amountChipsValue,
+      priceStars: priceStarsValue,
+    })
     const invoiceLink = await callTelegram('createInvoiceLink', {
-      title: pack.title,
-      description: `Get ${pack.chips.toLocaleString()} chips.`,
+      title: 'Chips pack',
+      description: `Buy +${amountChipsValue} chips`,
       payload,
       currency: 'XTR',
-      prices: [{ label: pack.title, amount: pack.stars }],
+      prices: [{ label: `+${amountChipsValue} chips`, amount: priceStarsValue }],
     })
 
     res.json({
       enabled: true,
       invoiceLink,
-      packId,
-      chips: pack.chips,
-      stars: pack.stars,
     })
   } catch (error) {
     console.error('Unable to create invoice', error)
-    res.status(500).json({ enabled: false, reason: 'telegram_error' })
+    res.status(500).json({
+      enabled: false,
+      reason: 'telegram_error',
+      message: error?.message || 'Unable to create Telegram invoice.',
+    })
   }
 })
 
-app.post('/api/telegram/webhook', async (req, res) => {
+const handleTelegramWebhook = async (req, res) => {
   const update = req.body
 
   try {
@@ -197,7 +223,10 @@ app.post('/api/telegram/webhook', async (req, res) => {
   }
 
   res.json({ ok: true })
-})
+}
+
+app.post('/api/telegram/webhook', handleTelegramWebhook)
+app.post('/api/stars/webhook', handleTelegramWebhook)
 
 app.listen(port, () => {
   console.log(`Stars payments listening on ${port}`)
