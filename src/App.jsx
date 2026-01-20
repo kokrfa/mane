@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import WebApp from '@twa-dev/sdk'
-import { createStarsInvoice, fetchBalance } from './api/stars'
+import { getChipsBalance } from './api/chips'
+import { createStarsInvoice } from './api/stars'
 import './App.css'
 
 const SCREEN = {
@@ -140,14 +141,13 @@ function App() {
 
   const user = useMemo(() => WebApp.initDataUnsafe?.user ?? placeholderUser, [])
 
-  const syncBalance = async () => {
-    const telegramId = WebApp.initDataUnsafe?.user?.id
+  const syncBalance = async (telegramId) => {
     if (!telegramId) return
 
     try {
-      const data = await fetchBalance({ userId: telegramId })
-      if (typeof data?.chips === 'number') {
-        setBalance(data.chips)
+      const data = await getChipsBalance(telegramId)
+      if (typeof data?.balance === 'number') {
+        setBalance(data.balance)
       }
     } catch (error) {
       console.error('Unable to sync balance', error)
@@ -155,7 +155,8 @@ function App() {
   }
 
   useEffect(() => {
-    syncBalance()
+    const telegramId = WebApp.initDataUnsafe?.user?.id
+    syncBalance(telegramId)
   }, [])
 
   const playerTotal = useMemo(() => calculateHandValue(playerHand), [playerHand])
@@ -254,16 +255,18 @@ function App() {
         return
       }
 
-      WebApp.openInvoice(data.invoiceLink, (status) => {
+      const telegramId = WebApp.initDataUnsafe?.user?.id
+      WebApp.openInvoice(data.invoiceLink, async (status) => {
         if (status === 'paid') {
-          setBalance((prev) => prev + pack.amount)
-          setShopNote('Payment successful! Chips added to your balance.')
+          setShopNote('Payment successful. Adding chips...')
+          await syncBalance(telegramId)
+          setShopNote('Chips added!')
         } else if (status === 'cancelled') {
           setShopNote('Payment cancelled.')
         } else if (status === 'failed') {
           setShopNote('Payment failed. Please try again.')
         } else {
-          setShopNote('Payment status updated.')
+          setShopNote(`Payment status: ${status}`)
         }
         stopLoading()
       })
